@@ -113,13 +113,15 @@ def generate_encoded_nlp_features():
     Of course, this requires additional cooperation, e.g. the keras Model has a `fit_generator` version of the fit
     method
     '''
-    texts_batches = spacy.util.minibatch(items=question_texts, size=BATCH_SIZE)
-    target_batches = spacy.util.minibatch(items=question_targets, size=BATCH_SIZE)
+    batches = spacy.util.minibatch(items=zip(question_texts, question_targets), size=BATCH_SIZE)
 
-    for i, batch in enumerate(texts_batches):
+    for batch in batches:
+        texts = [b[0] for b in batch]
+        targets = [b[1] for b in batch]
+
         pos_encodings = []
         ent_encodings = []
-        for doc in nlp.pipe(batch, batch_size=BATCH_SIZE, n_threads=2):
+        for doc in nlp.pipe(texts, batch_size=BATCH_SIZE, n_threads=2):
             pos_encodings.append(doc._.encoded_pos)
             ent_encodings.append(doc._.encoded_ent)
 
@@ -133,7 +135,7 @@ def generate_encoded_nlp_features():
         ent_encodings = to_categorical(ent_encodings, num_classes=entity_types_count)
         # print(ent_encodings)
 
-        targets_batch = np.array(next(target_batches))
+        targets_batch = np.array(targets)
         yield [pos_encodings, ent_encodings], targets_batch
 
 
