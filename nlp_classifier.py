@@ -1,7 +1,7 @@
-import os
-
+import itertools
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
 import spacy
 import tqdm
@@ -105,6 +105,7 @@ def make_encoded_nlp_features():
     return pos_encodings, ent_encodings
 
 
+
 def generate_encoded_nlp_features():
     '''
     This function splits the original question texts in batches, iterates over them and for each generates a pair of
@@ -114,29 +115,34 @@ def generate_encoded_nlp_features():
     method
     '''
     batches = spacy.util.minibatch(items=zip(question_texts, question_targets), size=BATCH_SIZE)
+    batches = [b for b in batches]
 
-    for batch in batches:
-        texts = [b[0] for b in batch]
-        targets = [b[1] for b in batch]
+    for repeatable_batches in itertools.repeat(batches):
+        for batch in repeatable_batches:
+            texts = []
+            targets = []
+            for b in batch:
+                texts.append(b[0])
+                targets.append(b[1])
 
-        pos_encodings = []
-        ent_encodings = []
-        for doc in nlp.pipe(texts, batch_size=BATCH_SIZE, n_threads=2):
-            pos_encodings.append(doc._.encoded_pos)
-            ent_encodings.append(doc._.encoded_ent)
+            pos_encodings = []
+            ent_encodings = []
+            for doc in nlp.pipe(texts, batch_size=BATCH_SIZE, n_threads=2):
+                pos_encodings.append(doc._.encoded_pos)
+                ent_encodings.append(doc._.encoded_ent)
 
-        pos_encodings = np.array(pos_encodings)
-        pos_encodings = pad_sequences(pos_encodings, maxlen=MAX_SEQUENCE_LENGTH)
-        pos_encodings = to_categorical(pos_encodings, num_classes=pos_tags_count)
-        # print(pos_encodings)
+            pos_encodings = np.array(pos_encodings)
+            pos_encodings = pad_sequences(pos_encodings, maxlen=MAX_SEQUENCE_LENGTH)
+            pos_encodings = to_categorical(pos_encodings, num_classes=pos_tags_count)
+            # print(pos_encodings)
 
-        ent_encodings = np.array(ent_encodings)
-        ent_encodings = pad_sequences(ent_encodings, maxlen=MAX_SEQUENCE_LENGTH)
-        ent_encodings = to_categorical(ent_encodings, num_classes=entity_types_count)
-        # print(ent_encodings)
+            ent_encodings = np.array(ent_encodings)
+            ent_encodings = pad_sequences(ent_encodings, maxlen=MAX_SEQUENCE_LENGTH)
+            ent_encodings = to_categorical(ent_encodings, num_classes=entity_types_count)
+            # print(ent_encodings)
 
-        targets_batch = np.array(targets)
-        yield [pos_encodings, ent_encodings], targets_batch
+            targets_batch = np.array(targets)
+            yield [pos_encodings, ent_encodings], targets_batch
 
 
 # %%
@@ -144,7 +150,7 @@ def generate_encoded_nlp_features():
 
 def display_model_history(history):
     plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
+    # plt.plot(history.history['val_loss'])
     plt.title('Model Loss')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
@@ -189,7 +195,7 @@ model = make_simple_dnn_model()
 
 nlp_features_generator = generate_encoded_nlp_features()
 history = model.fit_generator(nlp_features_generator,
-                              steps_per_epoch=len(question_texts)/BATCH_SIZE,
+                              steps_per_epoch=len(question_texts)//BATCH_SIZE,
                               epochs=3,
                               use_multiprocessing=False)
 
