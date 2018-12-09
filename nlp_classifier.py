@@ -94,12 +94,12 @@ def make_encoded_nlp_features():
 
     pos_encodings = np.array(pos_encodings)
     pos_encodings = pad_sequences(pos_encodings, maxlen=MAX_SEQUENCE_LENGTH)
-    pos_encodings = to_categorical(pos_encodings, num_classes=pos_tags_count)
+    # pos_encodings = to_categorical(pos_encodings, num_classes=pos_tags_count)
     # print(pos_encodings)
 
     ent_encodings = np.array(ent_encodings)
     ent_encodings = pad_sequences(ent_encodings, maxlen=MAX_SEQUENCE_LENGTH)
-    ent_encodings = to_categorical(ent_encodings, num_classes=entity_types_count)
+    # ent_encodings = to_categorical(ent_encodings, num_classes=entity_types_count)
     # print(ent_encodings)
 
     return pos_encodings, ent_encodings
@@ -133,12 +133,12 @@ def generate_encoded_nlp_features():
 
             pos_encodings = np.array(pos_encodings)
             pos_encodings = pad_sequences(pos_encodings, maxlen=MAX_SEQUENCE_LENGTH)
-            pos_encodings = to_categorical(pos_encodings, num_classes=pos_tags_count)
+            # pos_encodings = to_categorical(pos_encodings, num_classes=pos_tags_count)
             # print(pos_encodings)
 
             ent_encodings = np.array(ent_encodings)
             ent_encodings = pad_sequences(ent_encodings, maxlen=MAX_SEQUENCE_LENGTH)
-            ent_encodings = to_categorical(ent_encodings, num_classes=entity_types_count)
+            # ent_encodings = to_categorical(ent_encodings, num_classes=entity_types_count)
             # print(ent_encodings)
 
             targets_batch = np.array(targets)
@@ -150,7 +150,7 @@ def generate_encoded_nlp_features():
 
 def display_model_history(history):
     plt.plot(history.history['loss'])
-    # plt.plot(history.history['val_loss'])
+    plt.plot(history.history['val_loss'])
     plt.title('Model Loss')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
@@ -160,14 +160,22 @@ def display_model_history(history):
 
 # %%
 def make_simple_dnn_model():
-    ent_input = Input(shape=(MAX_SEQUENCE_LENGTH, entity_types_count), name="ent_input")
-    x_ent = Flatten()(ent_input)
+    ent_input = Input(shape=(MAX_SEQUENCE_LENGTH,), name="ent_input", dtype='uint8')
+    x_ent = Lambda(
+        keras.backend.one_hot,
+        arguments={"num_classes": entity_types_count},
+        output_shape = (MAX_SEQUENCE_LENGTH, entity_types_count))(ent_input)
+    x_ent = Flatten()(x_ent)
     # x_ent = Dense(100)(x_ent)
     # x_ent = Dropout(0.5)(x_ent)
     x_ent = Dense(10)(x_ent)
 
-    pos_input = Input(shape=(MAX_SEQUENCE_LENGTH, pos_tags_count), name="pos_input")
-    x_pos = Flatten()(pos_input)
+    pos_input = Input(shape=(MAX_SEQUENCE_LENGTH,), name="pos_input", dtype='uint8')
+    x_pos = Lambda(
+        keras.backend.one_hot,
+        arguments={"num_classes": pos_tags_count},
+        output_shape = (MAX_SEQUENCE_LENGTH, pos_tags_count))(pos_input)
+    x_pos = Flatten()(x_pos)
     # x_pos = Dense(300)(x_pos)
     # x_pos = Dropout(0.5)(x_pos)
     x_pos = Dense(20)(x_pos)
@@ -186,17 +194,16 @@ def make_simple_dnn_model():
 
 model = make_simple_dnn_model()
 
-# (pos_encodings, ent_encodings) = make_encoded_nlp_features()
-# history = model.fit(
-#     x={"pos_input": pos_encodings, "ent_input": ent_encodings},
-#     y=question_targets,
-#     batch_size=512, epochs=10, verbose=1, validation_split=0.015)
-# display_model_history(history)
-
-nlp_features_generator = generate_encoded_nlp_features()
-history = model.fit_generator(nlp_features_generator,
-                              steps_per_epoch=len(question_texts)//BATCH_SIZE,
-                              epochs=3,
-                              use_multiprocessing=False)
-
+(pos_encodings, ent_encodings) = make_encoded_nlp_features()
+history = model.fit(
+    x={"pos_input": pos_encodings, "ent_input": ent_encodings},
+    y=question_targets,
+    batch_size=512, epochs=10, verbose=1, validation_split=0.015)
 display_model_history(history)
+
+# nlp_features_generator = generate_encoded_nlp_features()
+# history = model.fit_generator(nlp_features_generator,
+#                               steps_per_epoch=len(question_texts)//BATCH_SIZE,
+#                               epochs=3,
+#                               use_multiprocessing=False)
+# display_model_history(history)
